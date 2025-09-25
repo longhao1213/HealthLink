@@ -13,7 +13,7 @@
 CREATE TABLE IF NOT EXISTS `admin_user` (
   `id` BIGINT PRIMARY KEY COMMENT '用户ID，雪花ID',
   `username` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名，用于登录',
-  `hashed_password` VARCHAR(255) NOT NULL COMMENT '哈希后的密码',
+  `password` VARCHAR(255) NOT NULL COMMENT '密码',
   `full_name` VARCHAR(255) COMMENT '用户全名',
   `email` VARCHAR(255) UNIQUE COMMENT '电子邮箱',
   `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '账户是否激活',
@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS `admin_user` (
 CREATE TABLE IF NOT EXISTS `patient_user` (
   `id` BIGINT PRIMARY KEY COMMENT '患者ID，雪花ID',
   `username` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名，用于登录',
-  `hashed_password` VARCHAR(255) NOT NULL COMMENT '哈希后的密码',
+  `password` VARCHAR(255) NOT NULL COMMENT '密码',
+  `phone` VARCHAR(11) NOT NULL COMMENT '手机号',
   `full_name` VARCHAR(255) COMMENT '患者全名',
   `email` VARCHAR(255) UNIQUE COMMENT '电子邮箱',
   `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '账户是否激活',

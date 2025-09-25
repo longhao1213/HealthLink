@@ -101,7 +101,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+#.venv
 env/
 venv/
 ENV/
@@ -146,4 +146,4 @@ rag_chroma_db
 /rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/header.bin
 /rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/length.bin
 /rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/link_lists.bin
-embedding_cache/
+embedding_cache/\n# Local environment variables\n.env
