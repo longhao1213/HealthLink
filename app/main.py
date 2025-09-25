@@ -43,6 +43,6 @@ async def root():
 
 # 启动服务器
 if __name__ == "__main__":
-    uvicorn.run(app,port=28520)
     logger.info(f"项目启动成功，请访问 http://127.0.0.1:28520")
     logger.info(f"接口文档地址 http://127.0.0.1:28520/docs")
+    uvicorn.run(app,port=28520)
