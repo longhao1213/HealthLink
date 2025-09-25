@@ -390,6 +390,40 @@ standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.8)", "htt
 standard-no-fastapi-cloud-cli = ["email-validator (>=2.0.0)", "fastapi-cli[standard-no-fastapi-cloud-cli] (>=0.0.8)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
+name = "fastapi-pagination"
+version = "0.14.1"
+description = "FastAPI pagination"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "fastapi_pagination-0.14.1-py3-none-any.whl", hash = "sha256:e5b698cab368b525f3b2ea2605c77dc22b00f50f67ac7d382dce8d3243fe60dc"},
+    {file = "fastapi_pagination-0.14.1.tar.gz", hash = "sha256:d045f8c678cef69ac006236f32a6d808ae6ca549360f79e92eefe2528f3e6337"},
+]
+
+[package.dependencies]
+fastapi = ">=0.93.0"
+pydantic = ">=1.9.1"
+typing-extensions = ">=4.8.0,<5"
+
+[package.extras]
+asyncpg = ["asyncpg (>=0.24.0)", "sqlalchemy (>=1.3.20)"]
+beanie = ["beanie (>=2.0.0)"]
+bunnet = ["bunnet (>=1.1.0,<2)"]
+databases = ["databases (>=0.6.0)"]
+django = ["databases (>=0.6.0)", "django (<6.0.0)"]
+elasticsearch = ["elasticsearch-dsl (>=8.13.0,<9)"]
+firestore = ["google-cloud-firestore (>=2.19.0,<3)"]
+mongoengine = ["mongoengine (>=0.23.1,<0.30.0)"]
+motor = ["motor (>=3.6.0,<4.0.0)"]
+odmantic = ["odmantic (>=1.0.2,<2)"]
+orm = ["databases (>=0.6.0)", "orm (>=0.3.1)"]
+piccolo = ["piccolo (>=0.89,<1.25)"]
+scylla-driver = ["scylla-driver (>=3.25.6,<4)"]
+sqlalchemy = ["sqlakeyset (>=2.0.1680321678,<3)", "sqlalchemy (>=1.3.20)"]
+sqlmodel = ["sqlakeyset (>=2.0.1680321678,<3)", "sqlmodel (>=0.0.22)"]
+tortoise = ["tortoise-orm (>=0.22.0)"]
+
+[[package]]
 name = "filelock"
 version = "3.19.1"
 description = "A platform independent file lock."
@@ -3573,5 +3607,5 @@ cffi = ["cffi (>=1.17,<2.0)", "cffi (>=2.0.0b)"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.12"
-content-hash = "34a1957809f07b249de1cfde3e467160f1cd30b7c04d7a37a76fce2ff9020f70"
+python-versions = ">=3.12,<4.0"
+content-hash = "ed70504874a91be210f3f23c7a266646d764e79241c69552721fb64c7adc928f"

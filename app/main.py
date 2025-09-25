@@ -3,6 +3,7 @@ import logging
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi_pagination import add_pagination
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api import admin_user_api
@@ -23,7 +24,8 @@ app = FastAPI(
 
 # 注册统一异常类
 app.add_exception_handler(ApiException,api_exception_handler)
-
+# 添加分页
+add_pagination(app)
 # 开启跨域
 app.add_middleware(
     CORSMiddleware,
