@@ -1,31 +1,27 @@
-[project]
+[tool.poetry]
 name = "healthlink"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "longhao",email = "1281578910@qq.com"}
-]
+description = "智能医疗助手 - HealthLink是一个基于AI的医疗助手应用程序"
+authors = ["longhao <1281578910@qq.com>"]
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi (>=0.117.1,<0.118.0)",
-    "uvicorn[standard] (>=0.37.0,<0.38.0)",
-    "gunicorn (>=23.0.0,<24.0.0)",
-    "python-multipart (>=0.0.20,<0.0.21)",
-    "sqlmodel (>=0.0.25,<0.0.26)",
-    "pymysql (>=1.1.2,<2.0.0)",
-    "langchain-openai (>=0.3.33,<0.4.0)",
-    "pymilvus (>=2.6.2,<3.0.0)",
-    "sentence-transformers (>=5.1.1,<6.0.0)",
-    "openai (>=1.109.1,<2.0.0)",
-    "minio (>=7.2.16,<8.0.0)",
-    "python-dotenv (>=1.1.1,<2.0.0)"
-]
 
-[tool.poetry]
-packages = [
-    {include = "app"}
-]
+[tool.poetry.dependencies]
+python = ">=3.12"
+fastapi = ">=0.117.1,<0.118.0"
+uvicorn = {version = ">=0.37.0,<0.38.0", extras = ["standard"]}
+gunicorn = ">=23.0.0,<24.0.0"
+python-multipart = ">=0.0.20,<0.0.21"
+sqlmodel = ">=0.0.25,<0.0.26"
+pymysql = ">=1.1.2,<2.0.0"
+langchain-openai = ">=0.3.33,<0.4.0"
+pymilvus = ">=2.6.2,<3.0.0"
+sentence-transformers = ">=5.1.1,<6.0.0"
+openai = ">=1.109.1,<2.0.0"
+minio = ">=7.2.16,<8.0.0"
+python-dotenv = ">=1.1.1,<2.0.0"
+
+[[tool.poetry.packages]]
+include = "app"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
