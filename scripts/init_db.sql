@@ -1,8 +1,10 @@
 -- ----------------------------
--- 数据库初始化脚本 (v3)
+-- 数据库初始化脚本 (v5)
 -- ID类型: BIGINT (支持雪花ID)
 -- 用户表拆分为 admin_user 和 patient_user
--- 移除所有外键约束
+-- 移除外键约束
+-- 文件表拆分为 knowledge_file 和 patient_file
+-- 为文件表增加详细字段
 -- ----------------------------
 
 -- ----------------------------
@@ -49,25 +51,44 @@ CREATE TABLE IF NOT EXISTS `knowledge_base` (
 ) COMMENT '知识库表';
 
 -- ----------------------------
--- 4. 文件表
+-- 4. 知识库文件表
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `file` (
+CREATE TABLE IF NOT EXISTS `knowledge_file` (
   `id` BIGINT PRIMARY KEY COMMENT '文件ID，雪花ID',
   `filename` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `file_ext` VARCHAR(50) COMMENT '文件扩展名 (e.g., .pdf, .docx)',
+  `mime_type` VARCHAR(100) COMMENT '文件的MIME类型 (e.g., application/pdf)',
+  `size_in_bytes` BIGINT COMMENT '文件大小（字节）',
   `file_path` VARCHAR(1024) NOT NULL COMMENT '文件在对象存储(MinIO)中的路径',
-  `file_type` ENUM('knowledge', 'patient_upload') NOT NULL COMMENT '文件类型：knowledge-知识库文件, patient_upload-患者上传的私人文件',
   `file_hash` VARCHAR(255) COMMENT '文件内容的哈希值，用于去重',
-  `admin_user_id` BIGINT COMMENT '上传文件的管理员ID (适用于knowledge类型文件)',
-  `patient_user_id` BIGINT COMMENT '上传文件的患者ID (适用于patient_upload类型文件)',
-  `knowledge_base_id` BIGINT COMMENT '如果文件属于某个知识库，则关联知识库ID',
+  `admin_user_id` BIGINT COMMENT '上传文件的管理员ID',
+  `knowledge_base_id` BIGINT COMMENT '所属知识库ID',
   `status` ENUM('pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending' COMMENT '文件处理状态（如向量化）',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否逻辑删除'
-) COMMENT '文件表';
+) COMMENT '知识库文件表';
 
 -- ----------------------------
--- 5. 聊天会话表
+-- 5. 患者上传文件表
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `patient_file` (
+  `id` BIGINT PRIMARY KEY COMMENT '文件ID，雪花ID',
+  `filename` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `file_ext` VARCHAR(50) COMMENT '文件扩展名 (e.g., .pdf, .jpg)',
+  `mime_type` VARCHAR(100) COMMENT '文件的MIME类型 (e.g., application/pdf)',
+  `size_in_bytes` BIGINT COMMENT '文件大小（字节）',
+  `file_path` VARCHAR(1024) NOT NULL COMMENT '文件在对象存储(MinIO)中的路径',
+  `file_hash` VARCHAR(255) COMMENT '文件内容的哈希值，用于去重',
+  `patient_user_id` BIGINT COMMENT '上传文件的患者ID',
+  `status` ENUM('pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending' COMMENT '文件处理状态',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否逻辑删除'
+) COMMENT '患者上传文件表';
+
+-- ----------------------------
+-- 6. 聊天会话表
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `chat_session` (
   `id` BIGINT PRIMARY KEY COMMENT '会话ID，雪花ID',
@@ -79,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `chat_session` (
 ) COMMENT '聊天会话表';
 
 -- ----------------------------
--- 6. 聊天记录表
+-- 7. 聊天记录表
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `chat_message` (
   `id` BIGINT PRIMARY KEY COMMENT '消息ID，雪花ID',
@@ -92,7 +113,7 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
 ) COMMENT '聊天记录表';
 
 -- ----------------------------
--- 7. 用户记忆表
+-- 8. 用户记忆表
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `memory` (
   `id` BIGINT PRIMARY KEY COMMENT '记忆ID，雪花ID',
