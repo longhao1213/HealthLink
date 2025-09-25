@@ -17,6 +17,6 @@ router = APIRouter(
 @router.post("/create",summary="创建后台用户",response_model=JsonData)
 def create_admin(userinfo:CreatUser, session: Session = Depends(get_session)) -> JsonData:
     """创建后台用户"""
-    logger.info(f"f创建后台用户：{userinfo}")
+    logger.info(f"创建后台用户：{userinfo}")
     admin_user = create_admin_user(userinfo,session)
     return JsonData.success(admin_user)
