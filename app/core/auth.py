@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Union, Optional
 
@@ -11,11 +12,13 @@ from app.core.config import settings
 from app.db.db import get_session
 from app.models.user import AdminUser, PatientUser
 
+logger = logging.getLogger(__name__)
+
 # 1. Password Hashing Setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # 2. OAuth2 Scheme Setup
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/user/v1/login")
 
 # 3. Password Utility Functions
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -69,7 +72,8 @@ def get_current_user(
         user_type: str = payload.get("user_type")
         if user_id is None or user_type is None:
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT Token解码失败: {e}")
         raise credentials_exception
 
     # 根据user_type从正确的表中查找用户
@@ -112,4 +116,3 @@ def get_current_patient_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="没有足够权限"
         )
     return current_user
-
