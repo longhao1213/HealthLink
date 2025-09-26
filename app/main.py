@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi_pagination import add_pagination
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api import admin_user_api
+from app.api import admin_user_api,knowledge_file_api
 from app.core.exceptions import ApiException, api_exception_handler
 
 logging.basicConfig(
@@ -35,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(admin_user_api.router)
+app.include_router(knowledge_file_api.router)
 @app.get("/")
 async def root():
     return {

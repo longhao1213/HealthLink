@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlmodel import Field
 from app.models.base import BaseModel
+from app.core.constants import FileStatus
 
 class KnowledgeBase(BaseModel, table=True):
     """
@@ -22,11 +23,12 @@ class KnowledgeFile(BaseModel, table=True):
     file_ext: Optional[str] = Field(default=None, max_length=50, description="文件扩展名")
     mime_type: Optional[str] = Field(default=None, max_length=100, description="文件的MIME类型")
     size_in_bytes: Optional[int] = Field(default=None, description="文件大小（字节）")
-    file_path: str = Field(max_length=1024, nullable=False, description="文件在对象存储中的路径")
+    file_path: Optional[str] = Field(default=None, max_length=1024, description="文件在对象存储中的路径")
     file_hash: Optional[str] = Field(default=None, max_length=255, description="文件内容的哈希值")
     admin_user_id: Optional[int] = Field(default=None, description="上传文件的管理员ID")
     knowledge_base_id: Optional[int] = Field(default=None, description="所属知识库ID")
-    status: str = Field(default="pending", max_length=50, nullable=False, description="文件处理状态")
+    upload_id: Optional[str] = Field(default=None, max_length=255, description="分片上传任务ID")
+    status: str = Field(default=FileStatus.PENDING, max_length=50, nullable=False, description="文件处理状态")
 
 class PatientFile(BaseModel, table=True):
     """
@@ -41,4 +43,5 @@ class PatientFile(BaseModel, table=True):
     file_path: str = Field(max_length=1024, nullable=False, description="文件在对象存储中的路径")
     file_hash: Optional[str] = Field(default=None, max_length=255, description="文件内容的哈希值")
     patient_user_id: Optional[int] = Field(default=None, description="上传文件的患者ID")
-    status: str = Field(default="pending", max_length=50, nullable=False, description="文件处理状态")
+    upload_id: Optional[str] = Field(default=None, max_length=255, description="分片上传任务ID")
+    status: str = Field(default=FileStatus.PENDING, max_length=50, nullable=False, description="文件处理状态")

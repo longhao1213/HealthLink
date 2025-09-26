@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False
+    MINIO_DEFAULT_BUCKET: str = "healthlink"
 
     # --- Milvus 配置 ---
     MILVUS_HOST: str = "localhost"
