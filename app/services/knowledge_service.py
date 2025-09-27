@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List, Dict, Any
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.constants import FileStatus
 from app.models.knowledge import KnowledgeFile
@@ -27,8 +27,40 @@ class KnowledgeService:
     ) -> Dict[str, Any]:
         """
         处理文件上传请求，根据是否分片返回不同的凭证，并存储完整文件信息。
+        如果检测到相同的文件哈希值，则直接复用现有文件，不进行上传。
         """
-        # 1. 在数据库中创建文件记录，包含所有已知信息
+        # 1. 如果提供了文件哈希值，则检查是否存在重复文件
+        if file_hash:
+            existing_file = session.exec(select(KnowledgeFile).where(KnowledgeFile.file_hash == file_hash)).first()
+            if existing_file:
+                logger.info(f"Duplicate file hash detected: {file_hash}. Reusing existing file.")
+                # 创建一个新的数据库记录，但复用已有的物理文件路径
+                db_file = KnowledgeFile(
+                    filename=filename,
+                    file_ext=file_ext,
+                    mime_type=mime_type,
+                    size_in_bytes=size_in_bytes,
+                    admin_user_id=admin_user_id,
+                    knowledge_base_id=knowledge_base_id,
+                    file_hash=file_hash,
+                    status=FileStatus.COMPLETED,  # 状态直接设为完成
+                    file_path=existing_file.file_path,  # 复用已有路径
+                    upload_id=None  # 没有上传过程
+                )
+                session.add(db_file)
+                session.flush()
+
+                logger.info(f"New record {db_file.id} created for existing file. Path: {db_file.file_path}")
+                # TODO: 在这里触发向量化后台任务
+                
+                return {
+                    "file_id": db_file.id,
+                    "duplicate": True,
+                    "message": "文件已存在，将直接处理。"
+                }
+
+        # 2. 如果不是重复文件，则执行正常的上传流程
+        # 在数据库中创建文件记录，包含所有已知信息
         db_file = KnowledgeFile(
             filename=filename,
             file_ext=file_ext,
@@ -43,10 +75,10 @@ class KnowledgeService:
         session.flush()  # 获取新记录的ID
 
         file_id = db_file.id
-        object_name = f"kb_{knowledge_base_id or 'uncategorized'}/{file_id}/{filename}"
+        object_name = f"kb_{knowledge_base_id or 'uncategorized'}/{file_id}_{filename}"
         db_file.file_path = object_name  # 设置文件在MinIO中的路径
 
-        # 2. 根据是否分片，执行不同逻辑
+        # 3. 根据是否分片，执行不同逻辑
         if multipart:
             # --- 分片上传逻辑 ---
             upload_id = minio_service.create_multipart_upload(
