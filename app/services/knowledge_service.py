@@ -1,12 +1,14 @@
 import logging
 from typing import Optional, List, Dict, Any
 from sqlmodel import Session, select
+import threading
 
 from app.core.constants import FileStatus
 from app.models.knowledge import KnowledgeFile
 from app.services.minio_service import minio_service
 from app.core.config import settings
 from app.core.exceptions import ApiException
+from app.services.vectorization_service import vectorize_file
 
 logger = logging.getLogger(__name__)
 
@@ -188,8 +190,14 @@ class KnowledgeService:
         db_file.status = FileStatus.COMPLETED
         session.add(db_file)
 
-        # TODO: 在这里触发向量化后台任务
-        # background_tasks.add_task(vectorize_file, file_id)
+        #  在这里触发向量化后台任务
+        vectorization_thread = threading.Thread(
+            target=vectorize_file,
+            args=(file_id,)
+        )
+        # 启动线程
+        vectorization_thread.start()
+        # vectorize_file(file_id)
         logger.info(f"文件 {file_id} 已成功上传并确认，状态更新为completed。")
 
         return db_file

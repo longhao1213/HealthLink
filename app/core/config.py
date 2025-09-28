@@ -36,11 +36,12 @@ class Settings(BaseSettings):
     # --- Milvus 配置 ---
     MILVUS_HOST: str = "localhost"
     MILVUS_PORT: int = 19530
+    MILVUS_DB_NAME: str = "healthlink_db"
 
     # --- 大语言模型 API Key ---
-    LLM_API_KEY: str = ""
-    LLM_URL: str = ""
-    # OPENAI_BASE_URL: Optional[str] = None # 如果需要代理
+    EMBEDDING_MODEL: str = "multimodal-embedding-v1"
+    EMBEDDING_MODEL_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    EMBEDDING_MODEL_KEY: str = "sk-42e1606eea99432fa7062fde563ea3d2"
 
     # --- 项目配置 ---
     PROJECT_NAME: str = "HealthLink AI Assistant"

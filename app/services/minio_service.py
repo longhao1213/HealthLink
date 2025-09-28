@@ -143,6 +143,57 @@ class MinioService:
             raise ConnectionError("MinIO client not initialized")
         return self.client.stat_object(bucket_name, object_name)
 
+    def download_file(self, bucket_name: str, object_name: str) -> Optional[bytes]:
+        """
+        从MinIO下载一个文件。
+
+        :param bucket_name: 存储桶名称。
+        :param object_name: 对象名称。
+        :return: 文件的二进制内容，如果失败则返回None。
+        """
+        if not self.client:
+            logger.error("MinIO客户端未初始化，无法下载文件。")
+            return None
+        try:
+            response = self.client.get_object(bucket_name, object_name)
+            file_data = response.read()
+            logger.info(f"成功从MinIO下载文件: {object_name}")
+            return file_data
+        except S3Error as e:
+            logger.error(f"从MinIO下载文件 {object_name} 失败: {e}")
+            return None
+        finally:
+            if 'response' in locals() and response:
+                response.close()
+                response.release_conn()
+
+    def generate_presigned_download_url(self, bucket_name: str, object_name: str, expires_in_minutes: int = 60) -> Optional[str]:
+        """
+        生成一个用于GET请求的预签名下载URL。
+
+        :param bucket_name: 存储桶名称。
+        :param object_name: 对象名称。
+        :param expires_in_minutes: URL的有效时间（分钟）。
+        :return: 预签名URL字符串，如果失败则返回None。
+        """
+        if not self.client:
+            logger.error("MinIO客户端未初始化，无法生成下载URL。")
+            return None
+
+        from datetime import timedelta
+        try:
+            url = self.client.get_presigned_url(
+                "GET",
+                bucket_name=bucket_name,
+                object_name=object_name,
+                expires=timedelta(minutes=expires_in_minutes),
+            )
+            logger.info(f"成功为对象 '{object_name}' 生成预签名下载URL")
+            return url
+        except S3Error as e:
+            logger.error(f"为对象 '{object_name}' 生成预签名下载URL失败: {e}")
+            return None
+
 # 创建一个全局minioService实例
 minio_service = MinioService()
 # 检查默认桶是否存在
