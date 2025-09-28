@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS `knowledge_file` (
   `admin_user_id` BIGINT COMMENT '上传文件的管理员ID',
   `knowledge_base_id` BIGINT COMMENT '所属知识库ID',
   `upload_id` BIGINT COMMENT '上传id',
-  `status` ENUM('uploading','pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending' COMMENT '文件处理状态（如向量化）',
+  `status` varchar(10) NOT NULL DEFAULT 'uploading' COMMENT '文件处理状态',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否逻辑删除'
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS `patient_file` (
   `file_hash` VARCHAR(255) COMMENT '文件内容的哈希值，用于去重',
   `patient_user_id` BIGINT COMMENT '上传文件的患者ID',
    `upload_id` BIGINT COMMENT '上传id',
-  `status` ENUM('uploading','pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending' COMMENT '文件处理状态',
+  `status` varchar(10) NOT NULL DEFAULT 'uploading' COMMENT '文件处理状态',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否逻辑删除'

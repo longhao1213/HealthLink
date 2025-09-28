@@ -40,8 +40,10 @@ class Settings(BaseSettings):
 
     # --- 大语言模型 API Key ---
     EMBEDDING_MODEL: str = "multimodal-embedding-v1"
-    EMBEDDING_MODEL_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    EMBEDDING_MODEL_URL: str = "services/embeddings/multimodal-embedding/multimodal-embedding"
     EMBEDDING_MODEL_KEY: str = "sk-42e1606eea99432fa7062fde563ea3d2"
+    MODEL_URL:str =  "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    MODEL_KEY:str = "sk-42e1606eea99432fa7062fde563ea3d2"
 
     # --- 项目配置 ---
     PROJECT_NAME: str = "HealthLink AI Assistant"

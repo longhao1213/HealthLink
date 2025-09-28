@@ -64,7 +64,5 @@ def finalize_file_upload(
         session=session,
         file_id=request_data.file_id
     )
-    
-    # TODO: 触发向量化任务
 
     return JsonData.success(data={"file_id": db_file.id, "status": db_file.status,"msg":"文件已确认上传，等待后续处理"})
