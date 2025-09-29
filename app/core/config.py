@@ -40,8 +40,8 @@ class Settings(BaseSettings):
 
     # --- 大语言模型 API Key ---
     EMBEDDING_MODEL: str = "multimodal-embedding-v1"
-    EMBEDDING_MODEL_URL: str = "services/embeddings/multimodal-embedding/multimodal-embedding"
-    EMBEDDING_MODEL_KEY: str = "sk-42e1606eea99432fa7062fde563ea3d2"
+    EMBEDDING_MODEL_URL: str = "https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding"
+    TEXT_EMBEDDING_MODEL:str = "text-embedding-v4"
     MODEL_URL:str =  "https://dashscope.aliyuncs.com/compatible-mode/v1"
     MODEL_KEY:str = "sk-42e1606eea99432fa7062fde563ea3d2"
 

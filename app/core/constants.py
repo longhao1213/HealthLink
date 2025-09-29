@@ -26,6 +26,9 @@ class SupportedMimeTypes(str, Enum):
     XML = "application/xml"
     HTML = "text/html"
     CSV = "text/csv"
+    WEB_URL = "text/x-web-url" # 自定义类型，用于表示网页链接
+
+
 
     # --- 演示文稿 ---
     PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -62,4 +65,5 @@ SUPPORTED_DOCUMENT_MIME_TYPES = {
     SupportedMimeTypes.XML.value,
     SupportedMimeTypes.HTML.value,
     SupportedMimeTypes.CSV.value,
+    SupportedMimeTypes.WEB_URL.value,
 }
