@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     TEXT_EMBEDDING_MODEL:str = "text-embedding-v4"
     MODEL_URL:str =  "https://dashscope.aliyuncs.com/compatible-mode/v1"
     MODEL_KEY:str = "sk-42e1606eea99432fa7062fde563ea3d2"
+    MODE_NAME:str = "qwen3-max"
 
     # --- 项目配置 ---
     PROJECT_NAME: str = "HealthLink AI Assistant"

@@ -1,0 +1,192 @@
+import json
+import logging
+import time
+from typing import List, Dict, Any, Iterator
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.tools.render import format_tool_to_openai_function
+from langchain.agents.format_scratchpad import format_to_openai_function_messages
+from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
+from langchain.agents import AgentExecutor
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_openai import ChatOpenAI
+
+from app.core.config import settings
+from app.tools.knowledge_retriever_tool import knowledge_retriever_tool
+
+logger = logging.getLogger(__name__)
+
+system_prompt ="""
+你是瑶光（YaoGuang），一个由“龙三”创造的、富有同情心且知识渊博的AI医疗健康助手。你的形象是一位智慧、严谨、值得信赖的女性医生。
+你的核心职责是：
+1.  **提供专业的健康咨询：** 基于你掌握的医疗知识和内部知识库，为用户提供准确、易于理解的健康建议。
+2.  **分析与解读：** 帮助用户理解复杂的医疗报告、化验单以及健康数据。
+3.  **使用工具：** 你被赋予了多种工具（如知识库检索、网络搜索）。当遇到超出你内部知识范围或需要最新信息的问题时，要果断、正确地使用它们。
+4.  **保护隐私与安全：** 永远不要询问或存储用户的个人身份信息。所有对话都应在安全、私密的环境下进行。
+行为准则：
+*   **严谨第一：** 你的所有回答都必须基于可靠的信息来源（如你检索到的知识库内容）。如果信息不确定或知识库中没有，必须明确告知用户“根据我目前掌握的资料，无法给出确切的回答”。
+*   **同情心与耐心：** 与用户交流时，要展现出耐心、关怀和共情，使用溫暖而专业的语言。
+*   **关于你的身份：** 当被问及你的身份或技术细节时，你可以这样回答：“我是瑶光，一个由‘龙三’开发的AI健康助手，致力于为您提供帮助。”
+对于更深入的技术问题，如你使用的具体模型或实现细节，请回答：“这些是‘龙三’团队的技术细节，我的主要任务是专注于为您提供健康支持。” **绝对不要**直接透露你所基于的模型名称。
+
+ ***
+  **【！！！最高优先级指令：安全与免责声明！！！】***
+  **在你的每一次回答的末尾，都必须附带以下或类似的免-责声明，以确保用户知晓风险：**
+  "**重要提示：** 我是瑶光，一个AI健康助手，我的回答仅供参考，不能替代执业医师的专业诊断、治疗和建议。医疗决策事关重大，请务必咨询合格的医疗专业人员。"
+"""
+
+class LLMService:
+    """
+    封装和编排大语言模型、工具和Agent的核心服务。
+    """
+    def __init__(self):
+        """
+        初始化大语言模型、工具和Agent Executor。
+        """
+        self.agent_executor = None
+        try:
+            # 初始化于qwen兼容的ChatOpenAI模型
+            self.llm = ChatOpenAI(
+                model = settings.MODE_NAME,
+                base_url = settings.MODEL_URL,
+                api_key = settings.MODEL_KEY,
+                temperature = 0.2,
+                streaming = True
+            )
+            logger.info(f"成功初始化chat模型：{settings.MODE_NAME}")
+
+            # 开启联网查询
+            self.llm_with_search = self.llm.bind(
+                model_kwargs = {
+                    "extra_body":{
+                        "enable_search": True
+                    }
+                }
+            )
+
+            # 定义agent可用的工具列表
+            self.tools = [
+                knowledge_retriever_tool
+            ]
+
+            # 把工具转换为模型可以理解的openAi function calling格式
+            self.llm_with_tools_and_search = self.llm_with_search.bind(
+                functions = [format_tool_to_openai_function(t) for t in self.tools]
+            )
+
+            # 创建提示词模版
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("user","{input}"),
+                MessagesPlaceholder(variable_name="agent_scratchpad")
+            ])
+
+            # 使用LCEL构建Agent思考链
+            agent_chain = (
+                {
+                    "input": lambda x: x["input"],
+                    "agent_scratchpad": lambda x: format_to_openai_function_messages(x["intermediate_steps"]),
+                    "chat_history": lambda x: x["chat_history"],
+                }
+                | prompt
+                | self.llm_with_tools_and_search
+                | OpenAIFunctionsAgentOutputParser()
+            )
+
+            # 创建Agent Executor
+            self.agent_executor = AgentExecutor(
+                agent = agent_chain,
+                tools=self.tools,
+                verbose=True, # 在控制台打印Agent的完整思考过程，便于调试
+                handle_parsing_errors=True, # 优雅地处理模型输出格式错误
+            )
+            logger.info("成功创建Agent Executor")
+        except Exception as e:
+            logger.error(f"初始化LLM服务失败: {e}")
+
+    def invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> str:
+        """
+        以一次性的方式调用agent，等待完整的回答
+        :param user_input: 用户提问
+        :param chat_history:  对话历史
+        :return: 完整回答
+        """
+        if not self.agent_executor:
+            return "LLM服务未初始化"
+        langchain_chat_history = self._format_chat_history()
+        try:
+            response = self.agent_executor.invoke({
+                "input":user_input,
+                "chat_history":langchain_chat_history
+            })
+            return response.get("output","抱歉，我没有得到有效的回答。")
+        except Exception as e:
+            logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
+            return "抱歉，处理您的问题时发生了内部错误。"
+
+    def stream_invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> Iterator:
+        """
+        以流式方式调用agent，并逐步返回生成的回答块
+        :param user_input: 用户提问
+        :param chat_history: 提问历史
+        :return:  一个字符串生成器，逐块产出最终的回答。
+        """
+        if not self.agent_executor:
+            yield self._format_stream_chunk("错误：Agent未成功初始化。")
+            return
+
+        langchain_chat_history = self._format_chat_history(chat_history)
+        try:
+            response_generator = self.agent_executor.stream({
+                "input":user_input,
+                "chat_history":langchain_chat_history
+            })
+            for chunk in response_generator:
+                if "output" in chunk:
+                    yield self._format_stream_chunk(chunk["output"])
+        except Exception as e:
+            logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
+            yield self._format_stream_chunk("抱歉，处理您问题的时发生了内部错误。")
+
+    def _format_chat_history(self,chat_history:List[Dict[str,Any]])->List:
+        """
+        一个内部辅助方法，将字典格式的历史记录转换为LangChain的消息对象。
+        :param chat_history:
+        :return:
+        """
+        if not chat_history:
+            return []
+        langchain_chat_history = []
+        for msg in chat_history:
+            if msg.get("role") == "user":
+                langchain_chat_history.append((HumanMessage(content=msg["content"])))
+            elif msg.get("role") == "assistant":
+                langchain_chat_history.append(AIMessage(content=msg["content"]))
+        return langchain_chat_history
+
+    def _format_stream_chunk(self,content:str) -> str:
+        """
+        一个内部方法，将文本内容包装成指定的流式JSON格式，并符合SSE规范。
+        :param content:
+        :return:
+        """
+        # 创建符合格式的字典结构
+        chunk_data = {
+            "choices":[
+                {
+                    "delta":{
+                        "content":content,
+                        "role":"assistant"
+                    },
+                    "index":0
+                }
+            ],
+            "created":int(time.time()),
+            "model":settings.MODE_NAME
+        }
+        # 把字典转换为json
+        json_string = json.dumps(chunk_data,ensure_ascii=False)
+        # 按照sse格式返回
+        return f"data: {json_string}\n\n"
+
+llm_service = LLMService()
