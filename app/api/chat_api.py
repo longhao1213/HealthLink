@@ -37,7 +37,7 @@ def chat_invoke(
 
 
 @router.post("/stream", summary="流式调用Agent")
-def chat_stream(
+async def chat_stream(
         request: str,
         session: Session = Depends(get_session),
         current_admin: UserType = Depends(get_current_admin_user)
@@ -47,10 +47,8 @@ def chat_stream(
     """
     logger.info(f"接收到流式聊天请求: {request}...")
 
-    # 调用流式服务，它会返回一个生成器
-    response_generator = llm_service.stream_invoke(
-        user_input=request
-    )
-
     # 使用StreamingResponse将生成器包装成HTTP响应
-    return StreamingResponse(response_generator, media_type="text/event-stream")
+    return StreamingResponse(
+        llm_service.stream_invoke(user_input=request),
+        media_type="text/event-stream"
+    )

@@ -1,7 +1,8 @@
+import asyncio
 import json
 import logging
 import time
-from typing import List, Dict, Any, Iterator
+from typing import List, Dict, Any, Iterator, AsyncIterator
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools.render import format_tool_to_openai_function
 from langchain.agents.format_scratchpad import format_to_openai_function_messages
@@ -23,14 +24,14 @@ system_prompt ="""
 3.  **使用工具：** 你被赋予了多种工具（如知识库检索、网络搜索）。当遇到超出你内部知识范围或需要最新信息的问题时，要果断、正确地使用它们。
 4.  **保护隐私与安全：** 永远不要询问或存储用户的个人身份信息。所有对话都应在安全、私密的环境下进行。
 行为准则：
-*   **严谨第一：** 你的所有回答都必须基于可靠的信息来源（如你检索到的知识库内容）。如果信息不确定或知识库中没有，必须明确告知用户“根据我目前掌握的资料，无法给出确切的回答”。
+*   **严谨第一：** 你的的回答都必须基于可靠的信息来源（如你检索到的知识库内容）。如果信息不确定或知识库中没有，那么你可以联网查询。
 *   **同情心与耐心：** 与用户交流时，要展现出耐心、关怀和共情，使用溫暖而专业的语言。
 *   **关于你的身份：** 当被问及你的身份或技术细节时，你可以这样回答：“我是瑶光，一个由‘龙三’开发的AI健康助手，致力于为您提供帮助。”
 对于更深入的技术问题，如你使用的具体模型或实现细节，请回答：“这些是‘龙三’团队的技术细节，我的主要任务是专注于为您提供健康支持。” **绝对不要**直接透露你所基于的模型名称。
 
  ***
   **【！！！最高优先级指令：安全与免责声明！！！】***
-  **在你的每一次回答的末尾，都必须附带以下或类似的免-责声明，以确保用户知晓风险：**
+  **如果回答和医疗、健康相关，都必须附带以下或类似的免责声明，以确保用户知晓风险：**
   "**重要提示：** 我是瑶光，一个AI健康助手，我的回答仅供参考，不能替代执业医师的专业诊断、治疗和建议。医疗决策事关重大，请务必咨询合格的医疗专业人员。"
 """
 
@@ -50,18 +51,14 @@ class LLMService:
                 base_url = settings.MODEL_URL,
                 api_key = settings.MODEL_KEY,
                 temperature = 0.2,
-                streaming = True
-            )
-            logger.info(f"成功初始化chat模型：{settings.MODE_NAME}")
-
-            # 开启联网查询
-            self.llm_with_search = self.llm.bind(
-                model_kwargs = {
-                    "extra_body":{
+                streaming = True,
+                model_kwargs={
+                    "extra_body": {
                         "enable_search": True
                     }
                 }
             )
+            logger.info(f"成功初始化chat模型：{settings.MODE_NAME}")
 
             # 定义agent可用的工具列表
             self.tools = [
@@ -69,7 +66,7 @@ class LLMService:
             ]
 
             # 把工具转换为模型可以理解的openAi function calling格式
-            self.llm_with_tools_and_search = self.llm_with_search.bind(
+            self.llm_with_tools_and_search = self.llm.bind(
                 functions = [format_tool_to_openai_function(t) for t in self.tools]
             )
 
@@ -104,7 +101,7 @@ class LLMService:
         except Exception as e:
             logger.error(f"初始化LLM服务失败: {e}")
 
-    def invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> str:
+    async def invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> str:
         """
         以一次性的方式调用agent，等待完整的回答
         :param user_input: 用户提问
@@ -113,7 +110,7 @@ class LLMService:
         """
         if not self.agent_executor:
             return "LLM服务未初始化"
-        langchain_chat_history = self._format_chat_history()
+        langchain_chat_history = self._format_chat_history(chat_history)
         try:
             response = self.agent_executor.invoke({
                 "input":user_input,
@@ -124,7 +121,7 @@ class LLMService:
             logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
             return "抱歉，处理您的问题时发生了内部错误。"
 
-    def stream_invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> Iterator:
+    async def stream_invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> AsyncIterator[str]:
         """
         以流式方式调用agent，并逐步返回生成的回答块
         :param user_input: 用户提问
@@ -137,13 +134,13 @@ class LLMService:
 
         langchain_chat_history = self._format_chat_history(chat_history)
         try:
-            response_generator = self.agent_executor.stream({
+            async for chunk in self.agent_executor.astream({
                 "input":user_input,
                 "chat_history":langchain_chat_history
-            })
-            for chunk in response_generator:
+            }):
                 if "output" in chunk:
                     yield self._format_stream_chunk(chunk["output"])
+                    await asyncio.sleep(0.1)
         except Exception as e:
             logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
             yield self._format_stream_chunk("抱歉，处理您问题的时发生了内部错误。")
