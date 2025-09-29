@@ -10,7 +10,7 @@ class KnowledgeSearchInput(BaseModel):
     query: str = Field(description="需要进行向量相似度搜索的自然语言问题或关键词。")
 
 @tool(args_schema=KnowledgeSearchInput)
-def knowledge_retriever_tool(query:str) -> str:
+async def knowledge_retriever_tool(query:str) -> str:
     """
      当需要查询与医疗、健康、疾病、诊断、治疗方案等相关的专业知识时，使用此工具。
      它会从内部知识库中检索最相关的文档片段来回答问题。
@@ -25,7 +25,7 @@ def knowledge_retriever_tool(query:str) -> str:
         return "错误：Milvus服务未初始化，无法执行知识库查询"
     try:
         # 把用户的查询文本进行向量化
-        query_vector = embeddings.embed_query(query)
+        query_vector = await embeddings.embed_query(query)
         # 使用向量在milvus里面搜索，查询3个相关的结果
         search_results = milvus_service.search(query_vector, 3)
         if not search_results:

@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 
 from app.db.db import get_session
+from app.schemas.chat_schema import ChatRequest
 from app.schemas.json_response import JsonData
 from app.services.llm_service import llm_service
 from app.core.auth import get_current_admin_user, UserType
@@ -38,9 +39,7 @@ def chat_invoke(
 
 @router.post("/stream", summary="流式调用Agent")
 async def chat_stream(
-        request: str,
-        session: Session = Depends(get_session),
-        current_admin: UserType = Depends(get_current_admin_user)
+        request: ChatRequest,
 ):
     """
     以流式响应（Server-Sent Events）的方式与Agent进行对话。

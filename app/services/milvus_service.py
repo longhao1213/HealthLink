@@ -65,7 +65,7 @@ class MilvusService:
             logger.error(f"创建Milvus Collection失败: {e}")
             raise ConnectionError("无法创建Milvus Collection") from e
 
-    def insert(self, entities: List[Dict[str, Any]]) -> List[int]:
+    async def insert(self, entities: List[Dict[str, Any]]) -> List[int]:
         """
         批量插入实体
         :param entities: 一个字典列表，每个字典包含 'file_id', 'knowledge_base_id', 'chunk_text', 'vector'
@@ -91,7 +91,7 @@ class MilvusService:
             logger.error(f"插入数据失败: {e}")
             raise ValueError("插入数据失败") from e
 
-    def search(self, query_vector: List[float], top_k: int = 5, knowledge_base_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def search(self, query_vector: List[float], top_k: int = 5, knowledge_base_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         执行向量搜索
         :param query_vector: 用于查询到单条向量
@@ -128,7 +128,7 @@ class MilvusService:
             logger.error(f"向量搜索失败: {e}")
             return []
 
-    def delete_by_file_id(self, file_id: int) -> int:
+    async def delete_by_file_id(self, file_id: int) -> int:
         """
         根据文件ID删除相关的向量记录
         :param file_id: 文件ID
