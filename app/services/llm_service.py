@@ -8,7 +8,7 @@ from langchain.agents.format_scratchpad import format_to_openai_function_message
 from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.utils.function_calling import format_tool_to_openai_function
+from langchain_core.utils.function_calling import convert_to_openai_function
 
 from app.core.config import settings
 from app.core.llm import get_default_llm
@@ -56,7 +56,7 @@ class LLMService:
 
             # 把工具转换为模型可以理解的openAi function calling格式
             self.llm_with_tools = llm.bind(
-                functions = [format_tool_to_openai_function(t) for t in self.tools]
+                functions = [convert_to_openai_function(t) for t in self.tools]
             )
 
             # 创建提示词模版
@@ -78,11 +78,6 @@ class LLMService:
                 | self.llm_with_tools
                 | OpenAIFunctionsAgentOutputParser()
             )
-            # agent = create_openai_functions_agent(
-            #     llm,
-            #     self.tools,
-            #     prompt)
-
             # 创建Agent Executor
             self.agent_executor = AgentExecutor(
                 agent = agent_chain,
