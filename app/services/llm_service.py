@@ -86,6 +86,8 @@ class LLMService:
                 handle_parsing_errors=True, # 优雅地处理模型输出格式错误
                 # 添加一个默认的输出键，防止解析错误
                 return_intermediate_steps=False,
+                max_iterations=5, # 限制最大迭代次数
+                max_execution_time=300, # 最大执行时间
             )
             logger.info("成功创建Agent Executor")
         except Exception as e:

@@ -1,115 +1,132 @@
-import sys
-import os
 import logging
-from typing import List, Dict, Any
+from typing import List
 
-# ----------------- 设置项目根路径 -----------------
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_dir)
-sys.path.insert(0, project_root)
+import ijson
+from langchain_community.document_loaders import JSONLoader
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 
-# ----------------- 配置日志 -----------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from app.core.config import settings
 
-# ----------------- 导入模块 -----------------
-from modelscope.msdatasets import MsDataset
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+data_path = "/Users/longhao/Downloads/Chinese-medical-dialogue/data/train_0001_of_0001.json"
+batch_size = 500
+continue_position = 36000
 
-# --- 导入我们自己的服务和函数 ---
-from app.core.llm import get_default_embeddings
-from app.services.milvus_service import milvus_service
+_embeddings = DashScopeEmbeddings(
+    model=settings.TEXT_EMBEDDING_MODEL,
+    max_retries=3,
+    dashscope_api_key=settings.MODEL_KEY,
+)
 
-# ----------------- 配置区 -----------------
-DATASET_NAME = "xiaofengalg/Chinese-medical-dialogue"
-DATASET_SPLIT = "train"
-TEXT_FIELDS = ["ask", "answer"]
-BATCH_SIZE = 128
+connections.connect(
+    alias="default",
+    host=settings.MILVUS_HOST,
+    port=settings.MILVUS_PORT
+)
+logger.info(f"成功连接到Milvus")
+fields = [
+            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="file_id", dtype=DataType.INT64, description="关联的源文件id"),
+            FieldSchema(name="knowledge_base_id", dtype=DataType.INT64, description="关联的知识库id"),
+            FieldSchema(name="chunk_text", dtype=DataType.VARCHAR, max_length=4000, description="分块的文本内容"),
+            FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=1024, description="向量表示")
+        ]
+collection = Collection(name="health_documents", schema=CollectionSchema(fields=fields, description="医疗健康文档合集", enable_dynamic_field=False))
 
-def process_and_insert_batch(batch_entities: List[Dict[str, Any]], embeddings):
+def stream_json_data(data_path:str):
     """
-    处理一个批次的实体：向量化并插入Milvus。
+    流式读取大json文件
+    :param data_path:
+    :return:
     """
-    if not batch_entities:
-        return
+    with open(data_path,'rb') as file:
+        batch = []
+        parse = ijson.items(file,'item')
+        total_processed = 0
+        for item in parse:
+            batch.append(item)
+            if total_processed > continue_position and len(batch) >= batch_size:
+                # todo 开始转换
+                vector( batch)
+                total_processed += len(batch)
+                logger.info(f"已处理{total_processed}条数据...")
+                # 清空数据
+                batch = []
+    if batch:
+        # 处理最后一波数据
+        logger.info("处理最后的数据")
 
-    texts_to_embed = [entity["chunk_text"] for entity in batch_entities]
-    
-    logging.info(f"正在为 {len(texts_to_embed)} 个文本块生成向量...")
-    try:
-        if not embeddings:
-            raise ConnectionError("Embedding模型未成功初始化")
-
-        vectors = embeddings.embed_documents(texts_to_embed)
-        
-        for i, entity in enumerate(batch_entities):
-            entity["vector"] = vectors[i]
-            
-        milvus_service.insert(entities=batch_entities)
-        logging.info(f"成功插入 {len(batch_entities)} 条记录到Milvus。")
-
-    except Exception as e:
-        logging.error(f"处理批次时发生错误: {e}", exc_info=True)
-
-def main():
+def vector(data:List):
     """
-    主函数：加载数据集，处理并存入向量数据库。
+    向量化数据
+    :param data:
+    :return:
     """
-    # 1. 获取向量模型实例
-    embeddings = get_default_embeddings()
-    if not embeddings:
-        logging.error("无法获取Embedding模型，脚本终止。")
-        return
-
-    logging.info(f"开始从ModelScope加载数据集: {DATASET_NAME}")
-    try:
-        # 使用MsDataset.load来加载魔搭社区的数据集
-        dataset = MsDataset.load(DATASET_NAME, split=DATASET_SPLIT)
-    except Exception as e:
-        logging.error(f"加载数据集失败: {e}")
-        return
-
-    logging.info("数据集加载成功！开始处理...")
-
+    # 创建文本分块器
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=2500,      # 每块最大2500字符
+        chunk_overlap=200,    # 块之间重叠200字符
     )
+    # 处理数据并进行文本分块
+    chunked_texts = []  # 存储分块后的文本
+    chunk_metadata = []  # 存储分块的元数据（如原始数据索引）
+    texts_to_embed = []
+    # 处理数据
+    for i,item in enumerate(data):
+        instruction = item.get("instruction", "")
+        input_text = item.get("input", "")
+        output_text = item.get("output", "")
+        full_text = f"问题：{instruction}\n详细信息：{input_text}\n回答：{output_text}"
 
-    batch_to_insert = []
-    total_chunks = 0
-
-    for i, item in enumerate(dataset):
-        question = item.get("ask", "")
-        answer = item.get("answer", "")
-        full_text = f"问题：{question}\n回答：{answer}"
-        
-        if not full_text.strip():
-            continue
-
+        # 对长文本进行分块
         chunks = text_splitter.split_text(full_text)
-        
-        for chunk_text in chunks:
-            entity = {
-                "file_id": i, 
-                "knowledge_base_id": 1, # 假设都属于知识库1
-                "chunk_text": chunk_text,
-                "vector": []
-            }
-            batch_to_insert.append(entity)
-            
-            if len(batch_to_insert) >= BATCH_SIZE:
-                process_and_insert_batch(batch_to_insert, embeddings)
-                total_chunks += len(batch_to_insert)
-                batch_to_insert = []
+        # 对每个块保存文本和数据
+        for j,chunk in enumerate(chunks):
+            chunked_texts.append(chunk)
+            chunk_metadata.append({
+                "original_index": i,  # 原始数据索引
+                "chunk_index": j,  # 块索引
+                "total_chunks": len(chunks)  # 总块数
+            })
+        # texts_to_embed.append(full_text)
+    # 向量化数据
+    vectors = _embeddings.embed_documents(chunked_texts)
+    # 封装一个dict key为原始文本，value为向量
+    save_data = []
+    for i,(text, meta) in enumerate(zip(chunked_texts, chunk_metadata)):
+        save_data.append({
+            "chunk_text": text,
+            "vector": vectors[i],
+            "file_id": -1,
+            "knowledge_base_id": -1
+        })
 
-        if (i + 1) % 1000 == 0:
-            logging.info(f"已处理 {i + 1} 条原始数据...")
+    # 拿到了完整的向量，开始调用milvus数据存储
+    save_to_milvus(save_data)
 
-    if batch_to_insert:
-        process_and_insert_batch(batch_to_insert, embeddings)
-        total_chunks += len(batch_to_insert)
+def save_to_milvus(data:List):
+    """
+    保存数据到数据库
+    :param data:
+    :return:
+    """
+    # 提取字段
 
-    logging.info(f"所有数据处理完毕！总共插入了 {total_chunks} 个文本块到Milvus。")
+    # 处理数据
+    data_to_insert = [
+        [item["file_id"] for item in data],
+        [item["knowledge_base_id"] for item in data],
+        [item["chunk_text"] for item in data],
+        [item["vector"] for item in data]
+    ]
+    # for item in data:
+    # )
+    # transposed_data = list(zip(*data_to_insert))
+    collection.insert(data_to_insert)
+    logger.info(f"向量保存成功")
 
-if __name__ == "__main__":
-    main()
+
+stream_json_data(data_path)

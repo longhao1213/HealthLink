@@ -10,7 +10,8 @@ _model = ChatOpenAI(
     api_key=settings.MODEL_KEY,
     temperature=0.2,
     streaming=True,
-    model_kwargs={
+    max_retries=3, # 最大重试次数
+    model_kwargs={ # 额外参数，这里配置了联网搜索
         "extra_body": {
             "enable_search": True
         }
