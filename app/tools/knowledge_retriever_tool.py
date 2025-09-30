@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from langchain.tools import tool
 from typing import List,Dict,Any
@@ -25,9 +26,9 @@ async def knowledge_retriever_tool(query:str) -> str:
         return "错误：Milvus服务未初始化，无法执行知识库查询"
     try:
         # 把用户的查询文本进行向量化
-        query_vector = await embeddings.embed_query(query)
+        query_vector = await embeddings.aembed_query(query)
         # 使用向量在milvus里面搜索，查询3个相关的结果
-        search_results = milvus_service.search(query_vector, 3)
+        search_results = await milvus_service.search(query_vector, 3)
         if not search_results:
             return "在知识库中没有查询到相关信息"
         # 格式化处理，把检索到的文本块拼成一个字符串

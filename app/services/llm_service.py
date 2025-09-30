@@ -1,17 +1,17 @@
-import asyncio
 import json
 import logging
 import time
-from typing import List, Dict, Any, Iterator, AsyncIterator
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.tools.render import format_tool_to_openai_function
+from typing import List, Dict, Any, AsyncIterator
+
+from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain.agents.format_scratchpad import format_to_openai_function_messages
 from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
-from langchain.agents import AgentExecutor
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.utils.function_calling import format_tool_to_openai_function
 
 from app.core.config import settings
+from app.core.llm import get_default_llm
 from app.tools.knowledge_retriever_tool import knowledge_retriever_tool
 
 logger = logging.getLogger(__name__)
@@ -45,19 +45,8 @@ class LLMService:
         """
         self.agent_executor = None
         try:
-            # 初始化于qwen兼容的ChatOpenAI模型
-            self.llm = ChatOpenAI(
-                model = settings.MODE_NAME,
-                base_url = settings.MODEL_URL,
-                api_key = settings.MODEL_KEY,
-                temperature = 0.2,
-                streaming = True,
-                model_kwargs={
-                    "extra_body": {
-                        "enable_search": True
-                    }
-                }
-            )
+            llm = get_default_llm()
+
             logger.info(f"成功初始化chat模型：{settings.MODE_NAME}")
 
             # 定义agent可用的工具列表
@@ -66,7 +55,7 @@ class LLMService:
             ]
 
             # 把工具转换为模型可以理解的openAi function calling格式
-            self.llm_with_tools_and_search = self.llm.bind(
+            self.llm_with_tools = llm.bind(
                 functions = [format_tool_to_openai_function(t) for t in self.tools]
             )
 
@@ -86,9 +75,13 @@ class LLMService:
                     "chat_history": lambda x: x["chat_history"],
                 }
                 | prompt
-                | self.llm_with_tools_and_search
+                | self.llm_with_tools
                 | OpenAIFunctionsAgentOutputParser()
             )
+            # agent = create_openai_functions_agent(
+            #     llm,
+            #     self.tools,
+            #     prompt)
 
             # 创建Agent Executor
             self.agent_executor = AgentExecutor(
@@ -96,6 +89,8 @@ class LLMService:
                 tools=self.tools,
                 verbose=True, # 在控制台打印Agent的完整思考过程，便于调试
                 handle_parsing_errors=True, # 优雅地处理模型输出格式错误
+                # 添加一个默认的输出键，防止解析错误
+                return_intermediate_steps=False,
             )
             logger.info("成功创建Agent Executor")
         except Exception as e:
@@ -110,7 +105,7 @@ class LLMService:
         """
         if not self.agent_executor:
             return "LLM服务未初始化"
-        langchain_chat_history = self._format_chat_history(chat_history)
+        langchain_chat_history = await self._format_chat_history(chat_history)
         try:
             response = self.agent_executor.invoke({
                 "input":user_input,
@@ -121,31 +116,43 @@ class LLMService:
             logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
             return "抱歉，处理您的问题时发生了内部错误。"
 
-    async def stream_invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> AsyncIterator[str]:
+    async def stream_invoke(self, user_input: str, chat_history: List[Dict[str, Any]] = None) -> AsyncIterator[str]:
         """
-        以流式方式调用agent，并逐步返回生成的回答块
-        :param user_input: 用户提问
-        :param chat_history: 提问历史
-        :return:  一个字符串生成器，逐块产出最终的回答。
+        以“伪流式”方式调用Agent。
+        它会等待Agent生成完整的答案块，然后将该答案块拆分为小片段进行流式输出。
         """
         if not self.agent_executor:
             yield self._format_stream_chunk("错误：Agent未成功初始化。")
             return
 
-        langchain_chat_history = self._format_chat_history(chat_history)
+        langchain_chat_history = await self._format_chat_history(chat_history)
+        
         try:
             async for chunk in self.agent_executor.astream({
-                "input":user_input,
-                "chat_history":langchain_chat_history
+                "input": user_input,
+                "chat_history": langchain_chat_history
             }):
-                if "output" in chunk:
-                    yield self._format_stream_chunk(chunk["output"])
-                    await asyncio.sleep(0.1)
-        except Exception as e:
-            logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
-            yield self._format_stream_chunk("抱歉，处理您问题的时发生了内部错误。")
+                if "output" in chunk and chunk["output"]:
+                    full_response_text = chunk["output"]
+                    logger.info(f"Agent已生成完整回答，长度: {len(full_response_text)}。开始进行伪流式输出...")
 
-    def _format_chat_history(self,chat_history:List[Dict[str,Any]])->List:
+                    buffer = ""
+                    for char in full_response_text:
+                        buffer += char
+                        if char in "。，！？、；：,.!?;: \n" or len(buffer) >= 20:
+                            yield self._format_stream_chunk(buffer)
+                            buffer = ""
+
+                    if buffer:
+                        yield self._format_stream_chunk(buffer)
+
+        except Exception as e:
+            logger.error(f"调用Agent流式接口时发生错误: {e}", exc_info=True)
+            yield self._format_stream_chunk("抱歉，处理您的问题时发生了内部错误。")
+        
+        yield "data: [DONE]\n\n"
+
+    async def _format_chat_history(self,chat_history:List[Dict[str,Any]])->List:
         """
         一个内部辅助方法，将字典格式的历史记录转换为LangChain的消息对象。
         :param chat_history:

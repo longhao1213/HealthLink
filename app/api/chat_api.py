@@ -48,6 +48,6 @@ async def chat_stream(
 
     # 使用StreamingResponse将生成器包装成HTTP响应
     return StreamingResponse(
-        llm_service.stream_invoke(user_input=request),
+        llm_service.stream_invoke(user_input=request.user_input,chat_history=request.chat_history),
         media_type="text/event-stream"
     )
