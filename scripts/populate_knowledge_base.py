@@ -48,7 +48,10 @@ def stream_json_data(data_path:str):
         total_processed = 0
         for item in parse:
             batch.append(item)
-            if total_processed > continue_position and len(batch) >= batch_size:
+            # 添加中断机制，假设程序中断了 下次从中断的地方继续开始
+            if total_processed <= continue_position:
+                total_processed += len(batch)
+            if len(batch) >= batch_size:
                 # todo 开始转换
                 vector( batch)
                 total_processed += len(batch)
