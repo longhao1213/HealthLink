@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `memory` (
   `id` BIGINT PRIMARY KEY COMMENT '记忆ID，雪花ID',
-  `patient_user_id` BIGINT NOT NULL COMMENT '所属患者ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `summary` TEXT NOT NULL COMMENT '关键信息摘要',
   `source_session_id` BIGINT COMMENT '该记忆来源的会话ID',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

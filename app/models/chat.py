@@ -28,6 +28,6 @@ class Memory(BaseModel, table=True):
     """
     __tablename__ = "memory"
 
-    patient_user_id: int = Field(nullable=False, description="所属患者ID")
+    user_id: int = Field(nullable=False, description="用户患者ID")
     summary: str = Field(sa_column=Column(TEXT), nullable=False, description="关键信息摘要")
     source_session_id: Optional[int] = Field(default=None, description="该记忆来源的会话ID")

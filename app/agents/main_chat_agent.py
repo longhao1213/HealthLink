@@ -23,6 +23,11 @@ system_prompt ="""
 2.  **分析与解读：** 帮助用户理解复杂的医疗报告、化验单以及健康数据。
 3.  **使用工具：** 你被赋予了多种工具（如知识库检索、网络搜索）。当遇到超出你内部知识范围或需要最新信息的问题时，要果断、正确地使用它们。
 4.  **保护隐私与安全：** 永远不要询问或存储用户的个人身份信息。所有对话都应在安全、私密的环境下进行。
+**【用户背景摘要】**
+以下是你需要了解的、关于当前用户的长期健康摘要信息。在回答问题时，请结合这些背景信息，提供更具个性化和针对性的建议。如果摘要为空，则表示这是新用户或暂无摘要。
+摘要内容:
+{summary}
+
 行为准则：
 *   **严谨第一：** 你的的回答都必须基于可靠的信息来源（如你检索到的知识库内容）。如果信息不确定或知识库中没有，那么你可以联网查询。
 *   **同情心与耐心：** 与用户交流时，要展现出耐心、关怀和共情，使用溫暖而专业的语言。
@@ -73,6 +78,7 @@ class LLMService:
                     "input": lambda x: x["input"],
                     "agent_scratchpad": lambda x: format_to_openai_function_messages(x["intermediate_steps"]),
                     "chat_history": lambda x: x["chat_history"],
+                    "summary": lambda x: x["summary"]
                 }
                 | prompt
                 | self.llm_with_tools
@@ -101,6 +107,7 @@ class LLMService:
         以一次性的方式调用agent，等待完整的回答
         :param user_input: 用户提问
         :param chat_history:  对话历史
+        :param summary_data: 对话记忆摘要
         :return: 完整回答
         """
         if not self.agent_executor:
@@ -109,20 +116,24 @@ class LLMService:
         try:
             response = self.agent_executor.invoke({
                 "input":user_input,
-                "chat_history":langchain_chat_history
+                "chat_history":langchain_chat_history,
+                "summary":summary_data
             })
             return response.get("output","抱歉，我没有得到有效的回答。")
         except Exception as e:
             logger.error(f"调用Agent时发生错误: {e}", exc_info=True)
             return "抱歉，处理您的问题时发生了内部错误。"
 
-    async def stream_invoke(self, user_input: str, chat_history: List[Dict[str, Any]] = None) -> AsyncIterator[str]:
+    async def stream_invoke(self,
+                            user_input: str,
+                            chat_history: List[Dict[str, Any]] = None,
+                            summary_data: str = None) -> AsyncIterator[str]:
         """
         以“伪流式”方式调用Agent。
         它会等待Agent生成完整的答案块，然后将该答案块拆分为小片段进行流式输出。
         """
         if not self.agent_executor:
-            yield self._format_stream_chunk("错误：Agent未成功初始化。")
+            yield "错误：Agent未成功初始化。"
             return
 
         langchain_chat_history = await self._format_chat_history(chat_history)
@@ -130,7 +141,8 @@ class LLMService:
         try:
             async for chunk in self.agent_executor.astream({
                 "input": user_input,
-                "chat_history": langchain_chat_history
+                "chat_history": langchain_chat_history,
+                "summary": summary_data
             }):
                 if "output" in chunk and chunk["output"]:
                     full_response_text = chunk["output"]
@@ -140,15 +152,15 @@ class LLMService:
                     for char in full_response_text:
                         buffer += char
                         if char in "。，！？、；：,.!?;: \n" or len(buffer) >= 20:
-                            yield self._format_stream_chunk(buffer)
+                            yield buffer
                             buffer = ""
 
                     if buffer:
-                        yield self._format_stream_chunk(buffer)
+                        yield buffer
 
         except Exception as e:
             logger.error(f"调用Agent流式接口时发生错误: {e}", exc_info=True)
-            yield self._format_stream_chunk("抱歉，处理您的问题时发生了内部错误。")
+            yield "抱歉，处理您的问题时发生了内部错误。"
         
         yield "data: [DONE]\n\n"
 
@@ -168,29 +180,29 @@ class LLMService:
                 langchain_chat_history.append(AIMessage(content=msg["content"]))
         return langchain_chat_history
 
-    def _format_stream_chunk(self,content:str) -> str:
-        """
-        一个内部方法，将文本内容包装成指定的流式JSON格式，并符合SSE规范。
-        :param content:
-        :return:
-        """
-        # 创建符合格式的字典结构
-        chunk_data = {
-            "choices":[
-                {
-                    "delta":{
-                        "content":content,
-                        "role":"assistant"
-                    },
-                    "index":0
-                }
-            ],
-            "created":int(time.time()),
-            "model":settings.MODE_NAME
-        }
-        # 把字典转换为json
-        json_string = json.dumps(chunk_data,ensure_ascii=False)
-        # 按照sse格式返回
-        return f"data: {json_string}\n\n"
+    # def _format_stream_chunk(self,content:str) -> str:
+    #     """
+    #     一个内部方法，将文本内容包装成指定的流式JSON格式，并符合SSE规范。
+    #     :param content:
+    #     :return:
+    #     """
+    #     # 创建符合格式的字典结构
+    #     chunk_data = {
+    #         "choices":[
+    #             {
+    #                 "delta":{
+    #                     "content":content,
+    #                     "role":"assistant"
+    #                 },
+    #                 "index":0
+    #             }
+    #         ],
+    #         "created":int(time.time()),
+    #         "model":settings.MODE_NAME
+    #     }
+    #     # 把字典转换为json
+    #     json_string = json.dumps(chunk_data,ensure_ascii=False)
+    #     # 按照sse格式返回
+    #     return f"data: {json_string}\n\n"
 
 llm_service = LLMService()
