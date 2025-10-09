@@ -9,7 +9,7 @@ class ChatSession(BaseModel, table=True):
     """
     __tablename__ = "chat_session"
 
-    patient_user_id: int = Field(nullable=False, description="所属患者ID")
+    user_id: int = Field(nullable=False, description="用户ID")
     topic: Optional[str] = Field(default=None, max_length=255, description="会话主题")
 
 class ChatMessage(BaseModel, table=True):

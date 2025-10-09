@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 data_path = "/Users/longhao/Downloads/Chinese-medical-dialogue/data/train_0001_of_0001.json"
 batch_size = 500
-continue_position = 36000
+continue_position = 100890
 
 _embeddings = DashScopeEmbeddings(
     model=settings.TEXT_EMBEDDING_MODEL,
@@ -100,8 +100,10 @@ def vector(data:List):
     # 封装一个dict key为原始文本，value为向量
     save_data = []
     for i,(text, meta) in enumerate(zip(chunked_texts, chunk_metadata)):
+        # 确保文本长度不超过4000字符
+        truncated_text = text[:4000] if len(text) > 4000 else text
         save_data.append({
-            "chunk_text": text,
+            "chunk_text": truncated_text,
             "vector": vectors[i],
             "file_id": -1,
             "knowledge_base_id": -1

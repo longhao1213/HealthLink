@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS `patient_file` (
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `chat_session` (
   `id` BIGINT PRIMARY KEY COMMENT '会话ID，雪花ID',
-  `patient_user_id` BIGINT NOT NULL COMMENT '所属患者ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `topic` VARCHAR(255) COMMENT '会话主题（可由AI生成）',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

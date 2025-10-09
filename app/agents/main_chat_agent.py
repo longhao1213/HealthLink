@@ -93,7 +93,10 @@ class LLMService:
         except Exception as e:
             logger.error(f"初始化LLM服务失败: {e}")
 
-    async def invoke(self,user_input:str,chat_history:List[Dict[str,Any]] = None) -> str:
+    async def invoke(self,
+                     user_input:str,
+                     chat_history:List[Dict[str,Any]] = None,
+                     summary_data:str = None) -> str:
         """
         以一次性的方式调用agent，等待完整的回答
         :param user_input: 用户提问

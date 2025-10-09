@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     MODEL_KEY:str = "sk-42e1606eea99432fa7062fde563ea3d2"
     MODE_NAME:str = "qwen3-max"
 
+    # --- ai业务相关 ---
+    TEMP_MEMORY_SIZE: int = 10
+
     # --- 项目配置 ---
     PROJECT_NAME: str = "HealthLink AI Assistant"
 

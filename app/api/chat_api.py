@@ -6,7 +6,7 @@ from sqlmodel import Session
 from app.db.db import get_session
 from app.schemas.chat_schema import ChatRequest
 from app.schemas.json_response import JsonData
-from app.services.llm_service import llm_service
+from app.agents.main_chat_agent import llm_service
 from app.core.auth import get_current_admin_user, UserType
 
 logger = logging.getLogger(__name__)
