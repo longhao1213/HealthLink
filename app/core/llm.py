@@ -11,10 +11,8 @@ _model = ChatOpenAI(
     temperature=0.2,
     streaming=True,
     max_retries=3, # 最大重试次数
-    model_kwargs={ # 额外参数，这里配置了联网搜索
-        "extra_body": {
-            "enable_search": True
-        }
+    extra_body={   # 显式指定额外参数，而不是通过model_kwargs
+        "enable_search": True
     }
 )
 

@@ -99,6 +99,7 @@ class ChatService:
             summary_data = await redis_client.get(summary_key)
             temp_chat_history = []
             chat_history = await redis_client.get(temp_history_key)
+            # logger.info(f"查询临时聊天记录key：{temp_history_key},结果：{chat_history}")
             if chat_history:
                 # 存在临时对话记录缓存
                 temp_chat_history = json.loads(chat_history)
@@ -235,7 +236,7 @@ class ChatService:
             logger.info(f"保存用户对话记录成功")
             if len(temp_chat_history) >= settings.TEMP_MEMORY_SIZE:
                 # 调用摘要生成
-                new_summary = await summary_generation_agent.invoke(json.dumps(temp_chat_history), summary_data)
+                new_summary = await summary_generation_agent.invoke(json.dumps(temp_chat_history,ensure_ascii=False), summary_data)
                 if new_summary:
                     await redis_client.set(summary_key, new_summary)
                     await redis_client.delete(temp_history_key)
@@ -250,10 +251,10 @@ class ChatService:
                     logger.info(f"保存用户摘要成功")
                 else:
                     logger.error("生成摘要失败")
-                    await redis_client.set(temp_history_key, json.dumps(temp_chat_history))
+                    await redis_client.set(temp_history_key, json.dumps(temp_chat_history,ensure_ascii=False))
             else:
                 # 保存临时对话记录
-                await redis_client.set(temp_history_key, json.dumps(temp_chat_history))
+                await redis_client.set(temp_history_key, json.dumps(temp_chat_history,ensure_ascii=False))
                 logger.info(f"保存临时对话记录成功")
         finally:
             await redis_client.close()
