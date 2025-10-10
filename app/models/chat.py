@@ -20,7 +20,7 @@ class ChatMessage(BaseModel, table=True):
 
     session_id: int = Field(nullable=False, description="所属会话ID")
     role: str = Field(max_length=50, nullable=False, description="消息发送者角色 (user or assistant)")
-    content: str = Field(sa_column=Column(TEXT), nullable=False, description="消息内容")
+    content: str = Field(sa_column=Column(TEXT, nullable=False), description="消息内容")
 
 class Memory(BaseModel, table=True):
     """
@@ -29,5 +29,5 @@ class Memory(BaseModel, table=True):
     __tablename__ = "memory"
 
     user_id: int = Field(nullable=False, description="用户患者ID")
-    summary: str = Field(sa_column=Column(TEXT), nullable=False, description="关键信息摘要")
+    summary: str = Field(sa_column=Column(TEXT, nullable=False), description="关键信息摘要")
     source_session_id: Optional[int] = Field(default=None, description="该记忆来源的会话ID")

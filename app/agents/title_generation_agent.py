@@ -1,7 +1,7 @@
 import logging
 
-from langchain.agents import AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.agents import AgentExecutor, create_openai_functions_agent
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from app.core.llm import get_default_llm
 
@@ -15,6 +15,9 @@ system_prompt = """
 3. 标题应准确概括用户核心问题
 4. 避免使用模糊或过于宽泛的表述
 5. 保持标题简洁且具有描述性
+例如:
+用户问题: "你好，我想问一下，我最近体检发现甘油三酯有点偏高，平时应该注意些什么？"
+你的输出: "甘油三酯偏高注意事项"
 """
 
 
@@ -28,25 +31,28 @@ class TitleGenerationAgent:
         初始化
         """
         self.agent_executor = None
+        tools = []
         try:
             llm = get_default_llm()
             # 创建提示词模版
             prompt = ChatPromptTemplate.from_messages([
                 ("system", system_prompt),
-                ("user", "{input}")
+                ("user", "{input}"),
+                MessagesPlaceholder(variable_name="agent_scratchpad"),
             ])
             # 使用LCEL构建Agent
-            agent_chain = (
-                    {
-                        "input": lambda x: x["input"],
-                    }
-                    | prompt
-                    | llm
-            )
+            # agent_chain = (
+            #         {
+            #             "input": lambda x: x["input"],
+            #         }
+            #         | prompt
+            #         | llm
+            # )
+            agent = create_openai_functions_agent(llm,tools, prompt)
             # 创建agent Executor
             self.agent_executor = AgentExecutor(
-                agent=agent_chain,
-                tools=[],
+                agent=agent,
+                tools=tools,
                 verbose=True,
                 handle_parsing_errors=True,
                 return_intermediate_steps=False,

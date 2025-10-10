@@ -31,7 +31,7 @@ async def chat_invoke(
     """
     logger.info(f"接收到app端非流式聊天请求: {request}...")
     answer = chat_service.invoke(
-        user_input= request,session=session,current_user=current_user
+        request= request,session=session,current_user=current_user
     )
     return JsonData.success(data={"answer": answer})
 
@@ -50,6 +50,6 @@ async def chat_stream(
     """
     logger.info(f"接收到app端流式聊天请求: {request}...")
     return StreamingResponse(
-        chat_service.stream_invoke(user_input= request,session=session,current_user=current_user),
+        chat_service.stream_invoke(request= request,session=session,current_user=current_user),
         media_type="text/event-stream",
     )

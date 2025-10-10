@@ -114,7 +114,7 @@ class LLMService:
             return "LLM服务未初始化"
         langchain_chat_history = await self._format_chat_history(chat_history)
         try:
-            response = self.agent_executor.invoke({
+            response = await self.agent_executor.ainvoke({
                 "input":user_input,
                 "chat_history":langchain_chat_history,
                 "summary":summary_data

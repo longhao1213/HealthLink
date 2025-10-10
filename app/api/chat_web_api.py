@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
@@ -20,19 +20,21 @@ router = APIRouter(
 @router.post("/invoke",summary="web端非流式调用agent")
 async def chat_invoke(
         request: ChatRequest,
+        background_tasks: BackgroundTasks,
         current_user: AdminUser = Depends(get_current_admin_user),
-        session: Session = Depends(get_session)
+        session: Session = Depends(get_session),
 ) -> JsonData:
     """
     web端非流式调用ai聊天
     :param request:
     :param current_user:
     :param session:
+    :param background_tasks:
     :return:
     """
     logger.info(f"接收到web端非流式聊天请求: {request}...")
-    answer = chat_service.invoke(
-        user_input= request,session=session, current_user=current_user
+    answer = await chat_service.invoke(
+        request= request,session=session, current_user=current_user, background_tasks=background_tasks
     )
     return JsonData.success(data={"answer": answer})
 
@@ -51,6 +53,6 @@ async def chat_stream(
     """
     logger.info(f"接收到web端流式聊天请求: {request}...")
     return StreamingResponse(
-        chat_service.stream_invoke(user_input= request,session=session, current_user=current_user),
+        chat_service.stream_invoke(request= request,session=session, current_user=current_user),
         media_type="text/event-stream",
     )
