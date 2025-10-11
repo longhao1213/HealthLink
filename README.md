@@ -25,9 +25,6 @@
 
 HealthLink 采用现代化的微服务架构，将数据、模型和应用逻辑解耦，以实现高可扩展性和可维护性。
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/mubai-creator/image-hosting/main/20240725160058.png" alt="Architecture Diagram" width="800"/>
-</p>
 
 ### 技术栈详情
 

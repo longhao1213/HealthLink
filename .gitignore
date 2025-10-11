@@ -140,10 +140,3 @@ cython_debug/
 
 # macOS
 .DS_Store
-rag_chroma_db
-/rag_chroma_db/chroma.sqlite3
-/rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/data_level0.bin
-/rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/header.bin
-/rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/length.bin
-/rag_chroma_db/c0856610-30b7-45d1-9b3d-f828dfcd78ef/link_lists.bin
-embedding_cache/\n# Local environment variables\n.env
