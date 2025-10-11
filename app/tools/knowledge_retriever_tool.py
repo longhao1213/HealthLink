@@ -2,7 +2,7 @@ import asyncio
 import logging
 from langchain.tools import tool
 from typing import List,Dict,Any
-from langchain_community.vectorstores import Milvus
+from langchain_milvus import Milvus
 
 from app.core.config import settings
 from app.services.milvus_service import milvus_service, DEFAULT_COLLECTION_NAME
@@ -22,6 +22,7 @@ async def knowledge_retriever_tool(query:str) -> str:
     :return:
     """
     logging.info(f"知识库检索工具被调用，查询类容：{query}")
+    logging.info(f"检查milvus连接信息：{settings.MILVUS_HOST}")
     if not embeddings:
         return "错误：Embedding模型未初始化，无法执行知识库查询"
     if not milvus_service:
@@ -30,7 +31,9 @@ async def knowledge_retriever_tool(query:str) -> str:
         vector_store = Milvus(
             embedding_function=embeddings,
             collection_name=DEFAULT_COLLECTION_NAME,
-            connection_args={"host": settings.MILVUS_HOST, "port": settings.MILVUS_PORT},
+            connection_args={"uri": f"http://{settings.MILVUS_HOST}:{settings.MILVUS_PORT}"},
+            text_field="chunk_text",
+            primary_field="id",
         )
         # 将向量存储对象转换为一个配置了MMR的Retriever（检索器）
         retriever = vector_store.as_retriever(
@@ -51,6 +54,7 @@ async def knowledge_retriever_tool(query:str) -> str:
         # 格式化处理，把检索到的文本块拼成一个字符串
         content = ""
         for i,result in enumerate(relevant_docs):
+            logging.info(f"参考资料{result}")
             file_id = result.metadata.get('file_id', '未知')
             chunk_text = result.page_content
             content += f"--- 参考资料 {i+1} (来源文件ID: {file_id}) ---\n"

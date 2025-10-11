@@ -73,7 +73,8 @@ class ChatService:
         :param session:
         :return:
         """
-
+        logger.info(f"检查模型key：{settings.MODEL_KEY}")
+        logger.info(f"检查milvus地址：{settings.MILVUS_HOST}")
         # 获取redis客户端
         redis_client = redis_service.get_client()
         try:

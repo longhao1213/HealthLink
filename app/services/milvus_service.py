@@ -22,6 +22,7 @@ class MilvusService:
         初始化milvus连接，并确保collection存在
         """
         try:
+            logger.info(f"尝试连接到 Milvus: host={settings.MILVUS_HOST}, port={settings.MILVUS_PORT}")
             connections.connect(
                 alias="default",
                 host=settings.MILVUS_HOST,

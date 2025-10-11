@@ -43,6 +43,7 @@ torchaudio = "^2.8.0"
 langchain-alibaba = "^0.1.1"
 ijson = "^3.4.0"
 redis = {extras = ["hiredis"], version = "^6.4.0"}
+langchain-milvus = "^0.2.1"
 
 [[tool.poetry.packages]]
 include = "app"
