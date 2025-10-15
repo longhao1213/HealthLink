@@ -16,6 +16,7 @@ from app.schemas.chat_schema import ChatRequest
 from app.agents.main_chat_agent import llm_service
 from app.agents.summarization_agent import summary_generation_agent
 from app.agents.title_generation_agent import title_generation_agent
+from app.db.db import engine
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,6 @@ class ChatService:
                 summary_data,
                 request,
                 result,
-                session,
                 current_user.id
             )
             return result
@@ -138,6 +138,11 @@ class ChatService:
         # 获取redis客户端
         redis_client = redis_service.get_client()
         try:
+            if request.new_session and request.session_id is None:
+                # 新会话
+                request.session_id = generate_snowflake_id()
+            else:
+                request.new_session = False
             # 构建一个通用存储到redis的key，这个key用来存储对话摘要
             summary_key = f"summary:{current_user.id}:{request.session_id}"
             # 构建一个用户对话临时缓存key，这个缓存根据摘要生成策略，数量不会太多
@@ -155,6 +160,7 @@ class ChatService:
             summary_data = await redis_client.get(summary_key)
             temp_chat_history = []
             chat_history = await redis_client.get(temp_history_key)
+            # logger.info(f"查询临时聊天记录key：{temp_history_key},结果：{chat_history}")
             if chat_history:
                 # 存在临时对话记录缓存
                 temp_chat_history = json.loads(chat_history)
@@ -173,7 +179,6 @@ class ChatService:
                 summary_data,
                 request,
                 result,
-                session,
                 current_user.id
             )
         finally:
@@ -187,7 +192,6 @@ class ChatService:
                                summary_data: str,
                                request: ChatRequest,
                                ai_message: str,
-                               session: Session,
                                user_id: int
                                ):
         """
@@ -198,7 +202,6 @@ class ChatService:
         :param summary_data: 对话摘要
         :param request: 用户请求
         :param ai_message: ai回答
-        :param session: 数据库对象
         :param user_id: 用户ID
         :return:
         """
@@ -207,56 +210,52 @@ class ChatService:
         # 判断对话历史的数量是否达到设置返回，如果达到，就调用生成摘要，并且删除临时对话记录
         temp_chat_history.append({"user": request.user_input, "assistant": ai_message})
         try:
-            # 判断sessionId是否存在
-            if request.new_session:
-                # session_id不存在，那么调用ai生成标题
-                logger.info(f"session_id不存在，调用ai生成标题,输入为:{request.user_input}")
-                title = await title_generation_agent.invoke(request.user_input)
-                logger.info(f"标题生成成功:{title}")
-                chat_session = ChatSession()
-                chat_session.id = request.session_id
-                chat_session.user_id = user_id
-                chat_session.topic = title
-                session.add(chat_session)
-                session.commit()
-                session.flush()
-                request.session_id = chat_session.id
-            # 保存用户聊天历史
-            user_message = ChatMessage()
-            user_message.session_id = request.session_id
-            user_message.role = "user"
-            user_message.content = request.user_input
-            session.add(user_message)
-            assistant_message = ChatMessage()
-            assistant_message.session_id = request.session_id
-            assistant_message.role = "assistant"
-            assistant_message.content = ai_message
-            session.add(assistant_message)
-            session.commit()
-            session.flush()
-            logger.info(f"保存用户对话记录成功")
-            if len(temp_chat_history) >= settings.TEMP_MEMORY_SIZE:
-                # 调用摘要生成
-                new_summary = await summary_generation_agent.invoke(json.dumps(temp_chat_history,ensure_ascii=False), summary_data)
-                if new_summary:
-                    await redis_client.set(summary_key, new_summary)
-                    await redis_client.delete(temp_history_key)
-                    # 保存到数据库
-                    memory = Memory()
-                    memory.summary = new_summary
-                    memory.user_id = user_id
-                    memory.source_session_id = request.session_id
-                    session.add(memory)
-                    session.commit()
-                    session.flush()
-                    logger.info(f"保存用户摘要成功")
+            with Session(engine) as session:
+                # 判断sessionId是否存在
+                if request.new_session:
+                    # session_id不存在，那么调用ai生成标题
+                    logger.info(f"session_id不存在，调用ai生成标题,输入为:{request.user_input}")
+                    title = await title_generation_agent.invoke(request.user_input)
+                    logger.info(f"标题生成成功:{title}")
+                    chat_session = ChatSession()
+                    chat_session.id = request.session_id
+                    chat_session.user_id = user_id
+                    chat_session.topic = title
+                    session.add(chat_session)
+                    request.session_id = chat_session.id
+                # 保存用户聊天历史
+                user_message = ChatMessage()
+                user_message.session_id = request.session_id
+                user_message.role = "user"
+                user_message.content = request.user_input
+                session.add(user_message)
+                assistant_message = ChatMessage()
+                assistant_message.session_id = request.session_id
+                assistant_message.role = "assistant"
+                assistant_message.content = ai_message
+                session.add(assistant_message)
+                logger.info(f"保存用户对话记录成功")
+                if len(temp_chat_history) >= settings.TEMP_MEMORY_SIZE:
+                    # 调用摘要生成
+                    new_summary = await summary_generation_agent.invoke(json.dumps(temp_chat_history,ensure_ascii=False), summary_data)
+                    if new_summary:
+                        await redis_client.set(summary_key, new_summary)
+                        await redis_client.delete(temp_history_key)
+                        # 保存到数据库
+                        memory = Memory()
+                        memory.summary = new_summary
+                        memory.user_id = user_id
+                        memory.source_session_id = request.session_id
+                        session.add(memory)
+                        logger.info(f"保存用户摘要成功")
+                    else:
+                        logger.error("生成摘要失败")
+                        await redis_client.set(temp_history_key, json.dumps(temp_chat_history,ensure_ascii=False))
                 else:
-                    logger.error("生成摘要失败")
+                    # 保存临时对话记录
                     await redis_client.set(temp_history_key, json.dumps(temp_chat_history,ensure_ascii=False))
-            else:
-                # 保存临时对话记录
-                await redis_client.set(temp_history_key, json.dumps(temp_chat_history,ensure_ascii=False))
-                logger.info(f"保存临时对话记录成功")
+                    logger.info(f"保存临时对话记录成功")
+                session.commit()
         finally:
             await redis_client.close()
             logger.info(f"保存用户对话记录完成")
